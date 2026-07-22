@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: hermes-agent
+    runtime: docker
+    region: singapore
+    plan: standard
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: HERMES_DASHBOARD
+        value: "1"
+      - key: HERMES_DASHBOARD_PORT
+        value: "10000"
+      - key: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
+        sync: false
+      - key: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
+        sync: false
+
+  - type: web
+    name: openclaw
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile.openclaw
+    healthCheckPath: /health
+    envVars:
+      - key: SETUP_PASSWORD
+        value: Jamot131313!
+      - key: OPENCLAW_GATEWAY_TOKEN
+        generateValue: true
+    disk:
+      name: openclaw-data
+      mountPath: /data
+      sizeGB: 1
