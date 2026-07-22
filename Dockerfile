@@ -2,7 +2,7 @@ FROM docker.io/nousresearch/hermes-agent:latest
 
 USER root
 
-RUN pip3 install --no-cache-dir websockets || (apt-get update && apt-get install -y python3-pip && pip3 install --no-cache-dir websockets)
+RUN pip3 install --no-cache-dir --break-system-packages websockets
 
 COPY server.py /app/server.py
 
