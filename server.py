@@ -205,9 +205,7 @@ async def handle_ws(request):
 async def main():
     app = web.Application()
     app.router.add_get('/health', handle_health)
-    app.router.add_head('/health', handle_health)
     app.router.add_get('/', handle_index)
-    app.router.add_head('/', handle_index)
     app.router.add_get('/ws', handle_ws)
 
     runner = web.AppRunner(app)
