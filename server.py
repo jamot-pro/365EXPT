@@ -9,7 +9,8 @@ import struct
 import termios
 import fcntl
 
-import websockets
+import aiohttp
+from aiohttp import web
 
 PORT = int(os.environ.get('PORT', 10000))
 HERMES_CMD = os.environ.get('HERMES_CMD', 'hermes')
@@ -44,6 +45,18 @@ term.onData(function(d){ws.send(d)});
 term.onResize(function(e){ws.send(JSON.stringify({type:'resize',cols:e.cols,rows:e.rows}))});
 window.addEventListener('resize',function(){fitAddon.fit();var d=term;ws.send(JSON.stringify({type:'resize',cols:d.cols,rows:d.rows}))});
 </script></body></html>""".replace('_UU_', _u).replace('_PP_', _p)
+
+
+def check_auth(headers):
+    auth = headers.get('Authorization', '')
+    if not auth.startswith('Basic '):
+        return False
+    try:
+        decoded = base64.b64decode(auth[6:]).decode('utf-8')
+        user, _, password = decoded.partition(':')
+        return user == HERMES_USER and password == HERMES_PASS
+    except Exception:
+        return False
 
 
 class TerminalSession:
@@ -92,98 +105,117 @@ class TerminalSession:
                 pass
 
 
-def check_auth(headers, message=None):
-    auth = ''
-    if headers and 'authorization' in headers:
-        auth = headers['authorization']
-    elif message and isinstance(message, str) and message.startswith('{'):
-        try:
-            cmd = json.loads(message)
-            return cmd.get('user') == HERMES_USER and cmd.get('pass') == HERMES_PASS
-        except json.JSONDecodeError:
-            pass
+async def handle_health(request):
+    return web.Response(text='OK')
 
-    if not auth.startswith('Basic '):
-        return False
-    try:
-        decoded = base64.b64decode(auth[6:]).decode('utf-8')
-        user, _, password = decoded.partition(':')
-        return user == HERMES_USER and password == HERMES_PASS
-    except Exception:
-        return False
+async def handle_index(request):
+    if not check_auth(request.headers):
+        raise web.HTTPUnauthorized(headers={'WWW-Authenticate': 'Basic realm="Hermes Agent"'})
+    return web.Response(text=INDEX_HTML, content_type='text/html')
 
-
-async def handler(websocket, path=None):
-    if path == '/ws':
-        first_msg = await asyncio.wait_for(websocket.recv(), timeout=5)
-        if not check_auth({}, message=first_msg):
-            await websocket.close(4001, 'Unauthorized')
-            return
-
-        session = TerminalSession()
-        session.spawn()
-
-        async def reader():
+async def handle_ws(request):
+    first_msg = None
+    async def check_auth_ws():
+        nonlocal first_msg
+        msg = await ws.receive()
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            first_msg = msg.data
             try:
-                while True:
-                    data = session.read()
-                    if data is None:
-                        break
-                    if data:
-                        await websocket.send(data)
-                    await asyncio.sleep(0.01)
-            except websockets.exceptions.ConnectionClosed:
+                cmd = json.loads(msg.data)
+                if cmd.get('type') == 'auth':
+                    if cmd.get('user') == HERMES_USER and cmd.get('pass') == HERMES_PASS:
+                        return True
+                    else:
+                        await ws.close(code=4001, message=b'Unauthorized')
+                        return False
+            except json.JSONDecodeError:
                 pass
-            finally:
-                session.close()
+            if not check_auth(request.headers):
+                await ws.close(code=4001, message=b'Unauthorized')
+                return False
+            return True
+        else:
+            await ws.close(code=4001, message=b'Unauthorized')
+            return False
 
-        async def writer():
-            try:
-                async for message in websocket:
-                    if isinstance(message, str) and message.startswith('{'):
+    ws = web.WebSocketResponse(max_msg_size=0)
+    await ws.prepare(request)
+
+    if not check_auth(request.headers):
+        timed_out = False
+        try:
+            msg = await asyncio.wait_for(ws.receive(), timeout=5)
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                try:
+                    cmd = json.loads(msg.data)
+                    if cmd.get('type') == 'auth':
+                        if not (cmd.get('user') == HERMES_USER and cmd.get('pass') == HERMES_PASS):
+                            return ws
+                    else:
+                        return ws
+                except json.JSONDecodeError:
+                    return ws
+            else:
+                return ws
+        except asyncio.TimeoutError:
+            return ws
+
+    session = TerminalSession()
+    session.spawn()
+
+    async def reader():
+        try:
+            while True:
+                data = session.read()
+                if data is None:
+                    break
+                if data:
+                    await ws.send_str(data)
+                await asyncio.sleep(0.01)
+        except Exception:
+            pass
+        finally:
+            session.close()
+
+    async def writer():
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    text = msg.data
+                    if text.startswith('{'):
                         try:
-                            cmd = json.loads(message)
+                            cmd = json.loads(text)
                             if cmd.get('type') == 'resize':
                                 session.set_winsize(cmd.get('cols', 80), cmd.get('rows', 24))
                                 continue
                         except json.JSONDecodeError:
                             pass
-                    if isinstance(message, str):
-                        session.write(message)
-            except websockets.exceptions.ConnectionClosed:
-                pass
-            finally:
-                session.close()
+                    session.write(text)
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    break
+        except Exception:
+            pass
+        finally:
+            session.close()
 
-        await asyncio.gather(reader(), writer())
-    else:
-        await websocket.close(1000, 'OK')
-
-
-async def process_request(path, request_headers):
-    if path == '/health':
-        headers = [('Content-Type', 'text/plain'), ('Server', 'HermesWeb/1.0')]
-        return (200, headers, b'OK')
-
-    if path in ('/', ''):
-        if not check_auth(request_headers):
-            headers = [('WWW-Authenticate', 'Basic realm="Hermes Agent"'), ('Content-Type', 'text/plain'), ('Server', 'HermesWeb/1.0')]
-            return (401, headers, b'Unauthorized')
-        headers = [('Content-Type', 'text/html; charset=utf-8'), ('Server', 'HermesWeb/1.0')]
-        return (200, headers, INDEX_HTML.encode())
-
-    return None
+    await asyncio.gather(reader(), writer())
+    return ws
 
 
 async def main():
-    async with websockets.serve(
-        handler,
-        host='0.0.0.0',
-        port=PORT,
-        process_request=process_request,
-    ):
-        print(f'Serving on port {PORT}', flush=True)
-        await asyncio.Future()
+    app = web.Application()
+    app.router.add_get('/health', handle_health)
+    app.router.add_head('/health', handle_health)
+    app.router.add_get('/', handle_index)
+    app.router.add_head('/', handle_index)
+    app.router.add_get('/ws', handle_ws)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    print(f'Serving on port {PORT}', flush=True)
+    await asyncio.Future()
 
 
 if __name__ == '__main__':
