@@ -5,6 +5,17 @@ import uvicorn
 
 app = FastAPI(title="Hermes Agent HTTP Wrapper")
 
+@app.get("/")
+async def root():
+    return {
+        "service": "Hermes Agent HTTP Wrapper",
+        "status": "running" if hermes_proc and hermes_proc.poll() is None else "stopped",
+        "endpoints": {
+            "GET /health": "health check",
+            "POST /chat": "send a message to Hermes"
+        }
+    }
+
 class ChatRequest(BaseModel):
     message: str
 
