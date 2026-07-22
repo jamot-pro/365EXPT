@@ -108,7 +108,7 @@ class TerminalSession:
 async def handle_health(request):
     return web.Response(text='OK')
 
-async def handle_index(request):
+async def handle_terminal(request):
     if not check_auth(request.headers):
         raise web.HTTPUnauthorized(headers={'WWW-Authenticate': 'Basic realm="Hermes Agent"'})
     return web.Response(text=INDEX_HTML, content_type='text/html')
@@ -205,7 +205,8 @@ async def handle_ws(request):
 async def main():
     app = web.Application()
     app.router.add_get('/health', handle_health)
-    app.router.add_get('/', handle_index)
+    app.router.add_get('/', handle_health)
+    app.router.add_get('/terminal', handle_terminal)
     app.router.add_get('/ws', handle_ws)
 
     runner = web.AppRunner(app)
