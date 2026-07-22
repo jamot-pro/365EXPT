@@ -54,8 +54,7 @@ demands it.
 5. Disagree with ideas as sharply as you like; treat people decently.
 6. Disclose AI assistance in your contributions — using AI is
    encouraged, hiding it isn't.
-7. No scoring, ranking, or reputation-grading of people. Recognition
-   means your name on real work.
+   
 
 Violations are handled by maintainers: content removal, a direct
 conversation, and — if needed — exclusion. Actions affecting a person
