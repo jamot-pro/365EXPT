@@ -16,6 +16,8 @@ HERMES_CMD = os.environ.get('HERMES_CMD', 'hermes')
 HERMES_USER = os.environ.get('HERMES_USER', 'hermes')
 HERMES_PASS = os.environ.get('HERMES_PASS', 'hermes123')
 
+_u = html.escape(HERMES_USER)
+_p = html.escape(HERMES_PASS)
 INDEX_HTML = """<!DOCTYPE html>
 <html>
 <head>
@@ -34,15 +36,14 @@ var fitAddon=new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
 term.open(document.getElementById('terminal'));
 fitAddon.fit();
-var auth=btoa('%s:%s');
 var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws');
-ws.onopen=function(){ws.send(JSON.stringify({type:'auth',user:'%s',pass:'%s'}));term.focus()};
+ws.onopen=function(){ws.send(JSON.stringify({type:'auth',user:'_UU_',pass:'_PP_'}));term.focus()};
 ws.onmessage=function(e){term.write(e.data)};
 ws.onclose=function(){term.write('\\r\\nConnection closed\\r\\n')};
 term.onData(function(d){ws.send(d)});
 term.onResize(function(e){ws.send(JSON.stringify({type:'resize',cols:e.cols,rows:e.rows}))});
 window.addEventListener('resize',function(){fitAddon.fit();var d=term;ws.send(JSON.stringify({type:'resize',cols:d.cols,rows:d.rows}))});
-</script></body></html>""" % tuple([html.escape(s) for s in [HERMES_USER, HERMES_PASS, HERMES_USER, HERMES_PASS]])
+</script></body></html>""".replace('_UU_', _u).replace('_PP_', _p)
 
 
 class TerminalSession:
