@@ -85,6 +85,27 @@ If you're new, filter by
 - Every contributor gets a genuine, human response. That's a promise
   the community makes and keeps.
 
+## Need resources for your research?
+
+Some experiments and integrations need infrastructure — a hosting plan,
+an API key, a database, or compute time. Through our supporting
+partners ([ElevenLabs](https://elevenlabs.io),
+[Render](https://render.com), and others), we have limited resources
+available to support community research.
+
+If your contribution needs something you don't have access to:
+
+1. **First, specify your need** — add it to the experiment proposal,
+   problem record, or integration spec so it's clear what's required.
+2. **Email andrea@jamot.pro** describing:
+   - What you're working on (link the issue or PR)
+   - What resource you need and roughly how much
+   - How it helps the community learn something
+
+Requests are reviewed and distributed by Andrea. Resources are limited;
+they go to projects that serve the experiment's mission and share
+results publicly.
+
 ## Recognition
 
 Contributors are credited in the experiments and discoveries they touch.

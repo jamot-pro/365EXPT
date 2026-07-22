@@ -70,5 +70,14 @@ That's it. You're a contributor.
   they become implementations.
 - Come back. The experiment compounds with every return visit.
 
+## Need resources?
+
+Some research needs infrastructure — hosting, API keys, compute time.
+If your contribution needs something you can't access, email
+**andrea@jamot.pro** with what you're working on and what you need.
+We distribute resources from partners like ElevenLabs and Render to
+support community research. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for details.
+
 **Questions?** Open a [Discussion](../../discussions) — asking a good
 question is itself a contribution.
